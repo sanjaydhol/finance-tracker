@@ -43,6 +43,11 @@ export default function Home() {
             Read our docs
           </a>
         </div>
+
+        <div className="flex gap-4 justify-center mt-8">
+          <a href="/admin" className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-6 py-2 rounded-full font-semibold shadow hover:from-blue-600 hover:to-purple-600 transition-colors">Admin Dashboard</a>
+          <a href="/record-earning" className="bg-gradient-to-r from-green-500 to-blue-500 text-white px-6 py-2 rounded-full font-semibold shadow hover:from-green-600 hover:to-blue-600 transition-colors">Record Earning</a>
+        </div>
       </main>
       <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
         <a

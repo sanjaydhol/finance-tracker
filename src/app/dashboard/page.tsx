@@ -1,109 +1,257 @@
 "use client";
-import { useRouter } from "next/navigation";
-import { getAuth, signOut, onAuthStateChanged } from "firebase/auth";
-import { app } from "../../firebase";
 import { useEffect, useState } from "react";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "firebase/firestore";
+import { getEntities } from "../../firestoreHelpers";
 
 export default function Dashboard() {
-  const router = useRouter();
-  const auth = getAuth(app);
-  const db = getFirestore(app);
+  const [expenses, setExpenses] = useState<any[]>([]);
+  const [earnings, setEarnings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
-  const [items, setItems] = useState<any[]>([]);
-  const [newItem, setNewItem] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [expenseStats, setExpenseStats] = useState({
+    total: 0,
+    pandal: 0,
+    idol: 0,
+    food: 0,
+    lighting: 0,
+  });
+  const [earningStats, setEarningStats] = useState({
+    total: 0,
+    donation: 0,
+    sponsorship: 0,
+    ticket: 0,
+    others: 0,
+  });
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setLoading(false);
-      if (!currentUser) {
-        router.push("/login");
-      }
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    const expData = await getEntities("expenses");
+    setExpenses(expData);
+    let total = 0,
+      pandal = 0,
+      idol = 0,
+      food = 0,
+      lighting = 0;
+    expData.forEach((exp: any) => {
+      total += exp.amount || 0;
+      if (exp.category === "pandal") pandal += exp.amount || 0;
+      if (exp.category === "idol") idol += exp.amount || 0;
+      if (exp.category === "food") food += exp.amount || 0;
+      if (exp.category === "lighting") lighting += exp.amount || 0;
     });
-    return () => unsubscribe();
-  }, [auth, router]);
+    setExpenseStats({ total, pandal, idol, food, lighting });
 
-  useEffect(() => {
-    if (user) fetchItems();
-  }, [user]);
-
-  const fetchItems = async () => {
-    const querySnapshot = await getDocs(collection(db, "items"));
-    setItems(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    const earnData = await getEntities("earnings");
+    setEarnings(earnData);
+    let etotal = 0,
+      donation = 0,
+      sponsorship = 0,
+      ticket = 0,
+      others = 0;
+    earnData.forEach((e: any) => {
+      etotal += e.amount || 0;
+      if (e.source === "Donation") donation += e.amount || 0;
+      if (e.source === "Sponsorship") sponsorship += e.amount || 0;
+      if (e.source === "Ticket") ticket += e.amount || 0;
+      if (e.source === "Others") others += e.amount || 0;
+    });
+    setEarningStats({ total: etotal, donation, sponsorship, ticket, others });
+    setLoading(false);
   };
-
-  const handleAddItem = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newItem.trim()) return;
-    setSubmitting(true);
-    await addDoc(collection(db, "items"), { name: newItem });
-    setNewItem("");
-    setSubmitting(false);
-    fetchItems();
-  };
-
-  const handleDeleteItem = async (id: string) => {
-    await deleteDoc(doc(db, "items", id));
-    fetchItems();
-  };
-
-  const handleSignOut = async () => {
-    await signOut(auth);
-    router.push("/login");
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <span className="text-lg text-gray-500">Loading...</span>
-      </div>
-    );
-  }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-100 via-purple-100 to-pink-100 p-8">
-      <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md flex flex-col items-center">
-        <h1 className="text-3xl font-bold mb-4 text-blue-700">Welcome to the Dashboard!</h1>
-        <form onSubmit={handleAddItem} className="flex gap-2 mb-6 w-full">
-          <input
-            type="text"
-            value={newItem}
-            onChange={e => setNewItem(e.target.value)}
-            placeholder="Enter item name"
-            className="border p-2 rounded w-full"
-            disabled={submitting}
-          />
-          <button
-            type="submit"
-            className="bg-blue-600 text-white px-4 py-2 rounded font-semibold"
-            disabled={submitting}
+    <div className="flex min-h-screen bg-gray-50">
+      {/* Sidebar */}
+      <aside className="w-64 bg-white shadow-lg flex flex-col p-6 min-h-screen">
+        <div className="text-2xl font-bold mb-8 tracking-tight text-gray-800">
+          Finance Tracker
+        </div>
+        <nav className="flex flex-col gap-2">
+          <a
+            href="/dashboard"
+            className="rounded-lg px-4 py-2 text-gray-800 font-medium bg-gray-100"
           >
-            Add
-          </button>
-        </form>
-        <ul className="w-full mb-8">
-          {items.map(item => (
-            <li key={item.id} className="flex justify-between items-center border-b py-2">
-              <span>{item.name}</span>
-              <button
-                onClick={() => handleDeleteItem(item.id)}
-                className="text-red-500 hover:underline text-sm"
-              >
-                Delete
-              </button>
-            </li>
-          ))}
-        </ul>
-        <button
-          onClick={handleSignOut}
-          className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-6 py-2 rounded-full font-semibold shadow hover:from-blue-600 hover:to-purple-600 transition-colors"
-        >
-          Sign Out
-        </button>
-      </div>
+            Dashboard
+          </a>
+          <a
+            href="/record-earning"
+            className="rounded-lg px-4 py-2 text-gray-700 hover:bg-gray-100"
+          >
+            Record Earning
+          </a>
+          <a
+            href="/admin"
+            className="rounded-lg px-4 py-2 text-gray-700 hover:bg-gray-100"
+          >
+            Admin
+          </a>
+        </nav>
+      </aside>
+      {/* Main Content */}
+      <main className="flex-1 p-8">
+        <h1 className="text-3xl font-bold mb-8 text-gray-800">Dashboard</h1>
+        {/* Earnings Stats */}
+        <div className="mb-10">
+          <h2 className="text-xl font-semibold mb-4 text-gray-800">
+            Earnings Overview
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-6">
+            <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
+              <div className="text-xs text-gray-500 mb-1">Total Earnings</div>
+              <div className="text-2xl font-bold text-gray-800">
+                ₹{earningStats.total.toLocaleString()}
+              </div>
+            </div>
+            <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
+              <div className="text-xs text-gray-500 mb-1">Donation</div>
+              <div className="text-xl font-semibold text-gray-700">
+                ₹{earningStats.donation.toLocaleString()}
+              </div>
+            </div>
+            <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
+              <div className="text-xs text-gray-500 mb-1">Sponsorship</div>
+              <div className="text-xl font-semibold text-gray-700">
+                ₹{earningStats.sponsorship.toLocaleString()}
+              </div>
+            </div>
+            <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
+              <div className="text-xs text-gray-500 mb-1">Ticket</div>
+              <div className="text-xl font-semibold text-gray-700">
+                ₹{earningStats.ticket.toLocaleString()}
+              </div>
+            </div>
+            <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
+              <div className="text-xs text-gray-500 mb-1">Others</div>
+              <div className="text-xl font-semibold text-gray-700">
+                ₹{earningStats.others.toLocaleString()}
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* Expenses Stats */}
+        <div className="mb-10">
+          <h2 className="text-xl font-semibold mb-4 text-gray-800">
+            Expenses Overview
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-6">
+            <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
+              <div className="text-xs text-gray-500 mb-1">Total Expenses</div>
+              <div className="text-2xl font-bold text-gray-800">
+                ₹{expenseStats.total.toLocaleString()}
+              </div>
+            </div>
+            <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
+              <div className="text-xs text-gray-500 mb-1">Pandal</div>
+              <div className="text-xl font-semibold text-gray-700">
+                ₹{expenseStats.pandal.toLocaleString()}
+              </div>
+            </div>
+            <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
+              <div className="text-xs text-gray-500 mb-1">Idol</div>
+              <div className="text-xl font-semibold text-gray-700">
+                ₹{expenseStats.idol.toLocaleString()}
+              </div>
+            </div>
+            <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
+              <div className="text-xs text-gray-500 mb-1">Food</div>
+              <div className="text-xl font-semibold text-gray-700">
+                ₹{expenseStats.food.toLocaleString()}
+              </div>
+            </div>
+            <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
+              <div className="text-xs text-gray-500 mb-1">Lighting</div>
+              <div className="text-xl font-semibold text-gray-700">
+                ₹{expenseStats.lighting.toLocaleString()}
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* Earnings Table */}
+        <div className="bg-white rounded-xl shadow p-6 overflow-x-auto mb-10">
+          <h2 className="text-xl font-semibold mb-4 text-gray-800">
+            All Earnings
+          </h2>
+          {loading ? (
+            <div className="text-gray-500">Loading...</div>
+          ) : (
+            <table className="min-w-full text-sm text-left">
+              <thead>
+                <tr className="border-b text-gray-600">
+                  <th className="py-2 px-3">Date</th>
+                  <th className="py-2 px-3">Amount</th>
+                  <th className="py-2 px-3">Source</th>
+                  <th className="py-2 px-3">Description</th>
+                  <th className="py-2 px-3">Payment Method</th>
+                  <th className="py-2 px-3">Recorded By</th>
+                </tr>
+              </thead>
+              <tbody>
+                {earnings.map((e) => (
+                  <tr key={e.id} className="border-b hover:bg-gray-50">
+                    <td className="py-2 px-3">
+                      {e.date
+                        ? new Date(
+                            e.date.seconds
+                              ? e.date.seconds * 1000
+                              : e.date
+                          ).toLocaleDateString()
+                        : "-"}
+                    </td>
+                    <td className="py-2 px-3">₹{e.amount}</td>
+                    <td className="py-2 px-3">{e.source}</td>
+                    <td className="py-2 px-3">{e.description}</td>
+                    <td className="py-2 px-3">{e.paymentMethod}</td>
+                    <td className="py-2 px-3">{e.recordedBy}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+        {/* Expenses Table */}
+        <div className="bg-white rounded-xl shadow p-6 overflow-x-auto">
+          <h2 className="text-xl font-semibold mb-4 text-gray-800">
+            All Expenses
+          </h2>
+          {loading ? (
+            <div className="text-gray-500">Loading...</div>
+          ) : (
+            <table className="min-w-full text-sm text-left">
+              <thead>
+                <tr className="border-b text-gray-600">
+                  <th className="py-2 px-3">Date</th>
+                  <th className="py-2 px-3">Amount</th>
+                  <th className="py-2 px-3">Category</th>
+                  <th className="py-2 px-3">Vendor</th>
+                  <th className="py-2 px-3">Description</th>
+                  <th className="py-2 px-3">Payment Method</th>
+                </tr>
+              </thead>
+              <tbody>
+                {expenses.map((exp) => (
+                  <tr key={exp.id} className="border-b hover:bg-gray-50">
+                    <td className="py-2 px-3">
+                      {exp.date
+                        ? new Date(
+                            exp.date.seconds
+                              ? exp.date.seconds * 1000
+                              : exp.date
+                          ).toLocaleDateString()
+                        : "-"}
+                    </td>
+                    <td className="py-2 px-3">₹{exp.amount}</td>
+                    <td className="py-2 px-3">{exp.category}</td>
+                    <td className="py-2 px-3">{exp.vendor}</td>
+                    <td className="py-2 px-3">{exp.description}</td>
+                    <td className="py-2 px-3">{exp.paymentMethod}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </main>
     </div>
   );
 }
